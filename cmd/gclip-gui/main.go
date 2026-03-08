@@ -1,7 +1,7 @@
 //go:build android || ios || linux || darwin || windows
 
 // This is a very basic example for verification purpose that
-// demonstrates how the golang.design/x/clipboard can interact
+// demonstrates how the github.com/ayn2op/clipboard can interact
 // with macOS/Linux/Windows/Android/iOS system clipboard.
 //
 // The gclip GUI application writes a string to the system clipboard
@@ -39,7 +39,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.design/x/clipboard"
+	"github.com/ayn2op/clipboard"
 
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/basicfont"

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"golang.design/x/clipboard"
+	"github.com/ayn2op/clipboard"
 )
 
 func ExampleWrite() {

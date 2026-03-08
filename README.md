@@ -1,9 +1,9 @@
-# clipboard [![PkgGoDev](https://pkg.go.dev/badge/golang.design/x/clipboard)](https://pkg.go.dev/golang.design/x/clipboard) ![](https://changkun.de/urlstat?mode=github&repo=golang-design/clipboard) ![clipboard](https://github.com/golang-design/clipboard/workflows/clipboard/badge.svg?branch=main)
+# clipboard [![PkgGoDev](https://pkg.go.dev/badge/github.com/ayn2op/clipboard)](https://pkg.go.dev/github.com/ayn2op/clipboard) ![](https://changkun.de/urlstat?mode=github&repo=golang-design/clipboard) ![clipboard](https://github.com/golang-design/clipboard/workflows/clipboard/badge.svg?branch=main)
 
 Cross platform (macOS/Linux/FreeBSD/Windows/Android/iOS) clipboard package in Go
 
 ```go
-import "golang.design/x/clipboard"
+import "github.com/ayn2op/clipboard"
 ```
 
 ## Features
@@ -85,7 +85,7 @@ for data := range ch {
 from the shell. To install:
 
 ```bash
-$ go install golang.design/x/clipboard/cmd/gclip@latest
+$ go install github.com/ayn2op/clipboard/cmd/gclip@latest
 ```
 
 ```bash
