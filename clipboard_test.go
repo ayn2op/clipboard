@@ -83,8 +83,8 @@ func TestClipboard(t *testing.T) {
 		h := img2.Bounds().Dy()
 
 		incorrect := 0
-		for i := 0; i < w; i++ {
-			for j := 0; j < h; j++ {
+		for i := range w {
+			for j := range h {
 				wr, wg, wb, wa := img1.At(i, j).RGBA()
 				gr, gg, gb, ga := img2.At(i, j).RGBA()
 				want := color.RGBA{
