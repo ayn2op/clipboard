@@ -2,10 +2,8 @@
 
 package clipboard
 
-import "context"
-
 func initialize() error {
-	return errNoCgo
+	return ErrNoCgo
 }
 
 func read(t Format) (buf []byte, err error) {
@@ -16,10 +14,6 @@ func readc(t string) ([]byte, error) {
 	panic("clipboard: cannot use when CGO_ENABLED=0")
 }
 
-func write(t Format, buf []byte) (<-chan struct{}, error) {
-	panic("clipboard: cannot use when CGO_ENABLED=0")
-}
-
-func watch(ctx context.Context, t Format) <-chan []byte {
+func write(t Format, buf []byte) error {
 	panic("clipboard: cannot use when CGO_ENABLED=0")
 }

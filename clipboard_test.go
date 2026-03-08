@@ -2,7 +2,6 @@ package clipboard_test
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"image/color"
 	"image/png"
@@ -10,13 +9,12 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
-	"time"
 
 	"github.com/ayn2op/clipboard"
 )
 
 func init() {
-	clipboard.Debug = true
+	// No debug mode needed anymore
 }
 
 func TestClipboardInit(t *testing.T) {
@@ -28,8 +26,8 @@ func TestClipboardInit(t *testing.T) {
 			t.Skip("Windows does not need to check for cgo")
 		}
 
-		if err := clipboard.Init(); !errors.Is(err, clipboard.ErrCgoDisabled) {
-			t.Fatalf("expect ErrCgoDisabled, got: %v", err)
+		if err := clipboard.Init(); !errors.Is(err, clipboard.ErrNoCgo) {
+			t.Fatalf("expect ErrNoCgo, got: %v", err)
 		}
 	})
 	t.Run("with-cgo", func(t *testing.T) {
@@ -58,16 +56,21 @@ func TestClipboard(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to read gold file: %v", err)
 		}
-		clipboard.Write(clipboard.FmtImage, data)
-
-		b := clipboard.Read(clipboard.FmtText)
-		if b != nil {
-			t.Fatalf("read clipboard that stores image data as text should fail, but got len: %d", len(b))
+		if err := clipboard.Write(clipboard.FmtImage, data); err != nil {
+			t.Fatalf("failed to write image: %v", err)
 		}
 
-		b = clipboard.Read(clipboard.FmtImage)
+		_, err = clipboard.Read(clipboard.FmtText)
+		if err == nil {
+			t.Fatalf("read clipboard that stores image data as text should fail, but succeeded")
+		}
+
+		b, err := clipboard.Read(clipboard.FmtImage)
+		if err != nil {
+			t.Fatalf("failed to read image: %v", err)
+		}
 		if b == nil {
-			t.Fatalf("read clipboard that stores image data as image should success, but got: nil")
+			t.Fatalf("read clipboard that stores image data as image should succeed, but got: nil")
 		}
 
 		img1, err := png.Decode(bytes.NewReader(data))
@@ -101,7 +104,7 @@ func TestClipboard(t *testing.T) {
 				}
 
 				if !reflect.DeepEqual(want, got) {
-					t.Logf("read data from clipbaord is inconsistent with previous written data, pix: (%d,%d), got: %+v, want: %+v", i, j, got, want)
+					t.Logf("read data from clipboard is inconsistent with previous written data, pix: (%d,%d), got: %+v, want: %+v", i, j, got, want)
 					incorrect++
 				}
 			}
@@ -114,15 +117,21 @@ func TestClipboard(t *testing.T) {
 
 	t.Run("text", func(t *testing.T) {
 		data := []byte("github.com/ayn2op/clipboard")
-		clipboard.Write(clipboard.FmtText, data)
-
-		b := clipboard.Read(clipboard.FmtImage)
-		if b != nil {
-			t.Fatalf("read clipboard that stores text data as image should fail, but got len: %d", len(b))
+		if err := clipboard.Write(clipboard.FmtText, data); err != nil {
+			t.Fatalf("failed to write text: %v", err)
 		}
-		b = clipboard.Read(clipboard.FmtText)
+
+		_, err := clipboard.Read(clipboard.FmtImage)
+		if err == nil {
+			t.Fatalf("read clipboard that stores text data as image should fail, but succeeded")
+		}
+
+		b, err := clipboard.Read(clipboard.FmtText)
+		if err != nil {
+			t.Fatalf("failed to read text: %v", err)
+		}
 		if b == nil {
-			t.Fatal("read clipboard taht stores text data as text should success, but got: nil")
+			t.Fatal("read clipboard that stores text data as text should succeed, but got: nil")
 		}
 
 		if !reflect.DeepEqual(data, b) {
@@ -142,39 +151,30 @@ func TestClipboardMultipleWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to read gold file: %v", err)
 	}
-	chg := clipboard.Write(clipboard.FmtImage, data)
+	if err := clipboard.Write(clipboard.FmtImage, data); err != nil {
+		t.Fatalf("failed to write image: %v", err)
+	}
 
 	data = []byte("github.com/ayn2op/clipboard")
-	clipboard.Write(clipboard.FmtText, data)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	select {
-	case <-ctx.Done():
-		t.Fatalf("failed to receive clipboard change notification")
-	case _, ok := <-chg:
-		if !ok {
-			t.Fatalf("change channel is closed before receiving the changed clipboard data")
-		}
-	}
-	_, ok := <-chg
-	if ok {
-		t.Fatalf("changed channel should be closed after receiving the notification")
+	if err := clipboard.Write(clipboard.FmtText, data); err != nil {
+		t.Fatalf("failed to write text: %v", err)
 	}
 
-	b := clipboard.Read(clipboard.FmtImage)
-	if b != nil {
+	b, err := clipboard.Read(clipboard.FmtImage)
+	if err == nil && b != nil {
 		t.Fatalf("read clipboard that should store text data as image should fail, but got: %d", len(b))
 	}
 
-	b = clipboard.Read(clipboard.FmtText)
+	b, err = clipboard.Read(clipboard.FmtText)
+	if err != nil {
+		t.Fatalf("failed to read text: %v", err)
+	}
 	if b == nil {
-		t.Fatalf("read clipboard that should store text data as text should success, got: nil")
+		t.Fatalf("read clipboard that should store text data as text should succeed, got: nil")
 	}
 
 	if !reflect.DeepEqual(data, b) {
-		t.Fatalf("read data from clipbaord is inconsistent with previous write, want %s, got: %s", string(data), string(b))
+		t.Fatalf("read data from clipboard is inconsistent with previous write, want %s, got: %s", string(data), string(b))
 	}
 }
 
@@ -211,66 +211,26 @@ func TestClipboardWriteEmpty(t *testing.T) {
 		}
 	}
 
-	chg1 := clipboard.Write(clipboard.FmtText, nil)
-	if got := clipboard.Read(clipboard.FmtText); got != nil {
+	if err := clipboard.Write(clipboard.FmtText, nil); err != nil {
+		t.Fatalf("failed to write nil: %v", err)
+	}
+	got, err := clipboard.Read(clipboard.FmtText)
+	if err != nil {
+		t.Fatalf("failed to read text: %v", err)
+	}
+	if got != nil {
 		t.Fatalf("write nil to clipboard should read nil, got: %v", string(got))
 	}
-	clipboard.Write(clipboard.FmtText, []byte(""))
-	<-chg1
 
-	if got := clipboard.Read(clipboard.FmtText); string(got) != "" {
+	if err := clipboard.Write(clipboard.FmtText, []byte("")); err != nil {
+		t.Fatalf("failed to write empty string: %v", err)
+	}
+	got, err = clipboard.Read(clipboard.FmtText)
+	if err != nil {
+		t.Fatalf("failed to read text: %v", err)
+	}
+	if string(got) != "" {
 		t.Fatalf("write empty string to clipboard should read empty string, got: `%v`", string(got))
-	}
-}
-
-func TestClipboardWatch(t *testing.T) {
-	if runtime.GOOS != "windows" {
-		if val, ok := os.LookupEnv("CGO_ENABLED"); ok && val == "0" {
-			t.Skip("CGO_ENABLED is set to 0")
-		}
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	// clear clipboard
-	clipboard.Write(clipboard.FmtText, []byte(""))
-	lastRead := clipboard.Read(clipboard.FmtText)
-
-	changed := clipboard.Watch(ctx, clipboard.FmtText)
-
-	want := []byte("github.com/ayn2op/clipboard")
-	go func(ctx context.Context) {
-		t := time.NewTicker(time.Millisecond * 500)
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				clipboard.Write(clipboard.FmtText, want)
-			}
-		}
-	}(ctx)
-	for {
-		select {
-		case <-ctx.Done():
-			if string(lastRead) == "" {
-				t.Fatalf("clipboard watch never receives a notification")
-			}
-			t.Log(string(lastRead))
-			return
-		case data, ok := <-changed:
-			if !ok {
-				if string(lastRead) == "" {
-					t.Fatalf("clipboard watch never receives a notification")
-				}
-				return
-			}
-			if !bytes.Equal(data, want) {
-				t.Fatalf("received data from watch mismatch, want: %v, got %v", string(want), string(data))
-			}
-			lastRead = data
-		}
 	}
 }
 
@@ -281,8 +241,12 @@ func BenchmarkClipboard(b *testing.B) {
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			clipboard.Write(clipboard.FmtText, data)
-			_ = clipboard.Read(clipboard.FmtText)
+			if err := clipboard.Write(clipboard.FmtText, data); err != nil {
+				b.Fatalf("failed to write: %v", err)
+			}
+			if _, err := clipboard.Read(clipboard.FmtText); err != nil {
+				b.Fatalf("failed to read: %v", err)
+			}
 		}
 	})
 }
@@ -315,16 +279,5 @@ func TestClipboardNoCgo(t *testing.T) {
 		}()
 
 		clipboard.Write(clipboard.FmtText, []byte("dummy"))
-	})
-
-	t.Run("Watch", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r != nil {
-				return
-			}
-			t.Fatalf("expect to fail when CGO_ENABLED=0")
-		}()
-
-		clipboard.Watch(context.TODO(), clipboard.FmtText)
 	})
 }

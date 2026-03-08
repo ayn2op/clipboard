@@ -3,9 +3,7 @@
 package clipboard_test
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"github.com/ayn2op/clipboard"
 )
@@ -16,7 +14,9 @@ func ExampleWrite() {
 		panic(err)
 	}
 
-	clipboard.Write(clipboard.FmtText, []byte("Hello, 世界"))
+	if err := clipboard.Write(clipboard.FmtText, []byte("Hello, 世界")); err != nil {
+		panic(err)
+	}
 	// Output:
 }
 
@@ -26,25 +26,11 @@ func ExampleRead() {
 		panic(err)
 	}
 
-	fmt.Println(string(clipboard.Read(clipboard.FmtText)))
-	// Output:
-	// Hello, 世界
-}
-
-func ExampleWatch() {
-	err := clipboard.Init()
+	data, err := clipboard.Read(clipboard.FmtText)
 	if err != nil {
 		panic(err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-
-	changed := clipboard.Watch(context.Background(), clipboard.FmtText)
-	go func(ctx context.Context) {
-		clipboard.Write(clipboard.FmtText, []byte("你好，world"))
-	}(ctx)
-	fmt.Println(string(<-changed))
+	fmt.Println(string(data))
 	// Output:
-	// 你好，world
+	// Hello, 世界
 }

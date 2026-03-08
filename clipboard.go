@@ -24,45 +24,18 @@ The most common operations are `Read` and `Write`. To use them:
 Note that read/write regarding image format assumes that the bytes are
 PNG encoded since it serves the alpha blending purpose that might be
 used in other graphical software.
-
-In addition, `clipboard.Write` returns a channel that can receive an
-empty struct as a signal, which indicates the corresponding write call
-to the clipboard is outdated, meaning the clipboard has been overwritten
-by others and the previously written data is lost. For instance:
-
-	changed := clipboard.Write(clipboard.FmtText, []byte("text data"))
-
-	select {
-	case <-changed:
-		println(`"text data" is no longer available from clipboard.`)
-	}
-
-You can ignore the returning channel if you don't need this type of
-notification. Furthermore, when you need more than just knowing whether
-clipboard data is changed, use the watcher API:
-
-	ch := clipboard.Watch(context.TODO(), clipboard.FmtText)
-	for data := range ch {
-		// print out clipboard data whenever it is changed
-		println(string(data))
-	}
 */
 package clipboard // import "github.com/ayn2op/clipboard"
 
 import (
-	"context"
 	"errors"
-	"fmt"
-	"os"
 	"sync"
 )
 
 var (
-	// activate only for running tests.
-	debug          = false
-	errUnavailable = errors.New("clipboard unavailable")
-	errUnsupported = errors.New("unsupported format")
-	errNoCgo       = errors.New("clipboard: cannot use when CGO_ENABLED=0")
+	ErrUnavailable = errors.New("clipboard unavailable")
+	ErrUnsupported = errors.New("unsupported format")
+	ErrNoCgo       = errors.New("clipboard: cannot use when CGO_ENABLED=0")
 )
 
 // Format represents the format of clipboard data.
@@ -95,7 +68,7 @@ var (
 //		panic(err)
 //	}
 //
-// If Init returns an error, any subsequent Read/Write/Watch call
+// If Init returns an error, any subsequent Read/Write call
 // may result in an unrecoverable panic.
 func Init() error {
 	initOnce.Do(func() {
@@ -104,46 +77,19 @@ func Init() error {
 	return initError
 }
 
-// Read returns a chunk of bytes of the clipboard data if it presents
-// in the desired format t presents. Otherwise, it returns nil.
-func Read(t Format) []byte {
+// Read returns a chunk of bytes of the clipboard data in the
+// desired format. Returns an error if the read fails.
+func Read(t Format) ([]byte, error) {
 	lock.Lock()
 	defer lock.Unlock()
-
-	buf, err := read(t)
-	if err != nil {
-		if debug {
-			fmt.Fprintf(os.Stderr, "read clipboard err: %v\n", err)
-		}
-		return nil
-	}
-	return buf
+	return read(t)
 }
 
 // Write writes a given buffer to the clipboard in a specified format.
-// Write returned a receive-only channel can receive an empty struct
-// as a signal, which indicates the clipboard has been overwritten from
-// this write.
 // If format t indicates an image, then the given buf assumes
 // the image data is PNG encoded.
-func Write(t Format, buf []byte) <-chan struct{} {
+func Write(t Format, buf []byte) error {
 	lock.Lock()
 	defer lock.Unlock()
-
-	changed, err := write(t, buf)
-	if err != nil {
-		if debug {
-			fmt.Fprintf(os.Stderr, "write to clipboard err: %v\n", err)
-		}
-		return nil
-	}
-	return changed
-}
-
-// Watch returns a receive-only channel that received the clipboard data
-// whenever any change of clipboard data in the desired format happens.
-//
-// The returned channel will be closed if the given context is canceled.
-func Watch(ctx context.Context, t Format) <-chan []byte {
-	return watch(ctx, t)
+	return write(t, buf)
 }

@@ -20,13 +20,9 @@ unsigned long clipboard_read(char* typ, char **out);
 */
 import "C"
 import (
-	"bytes"
-	"context"
 	"fmt"
 	"os"
-	"runtime"
 	"runtime/cgo"
-	"time"
 	"unsafe"
 )
 
@@ -52,7 +48,7 @@ Then this package should be ready to use.
 func initialize() error {
 	ok := C.clipboard_test()
 	if ok != 0 {
-		return fmt.Errorf(helpmsg, errUnavailable)
+		return fmt.Errorf(helpmsg, ErrUnavailable)
 	}
 	return nil
 }
@@ -64,7 +60,7 @@ func read(t Format) (buf []byte, err error) {
 	case FmtImage:
 		return readc("image/png")
 	}
-	return nil, errUnsupported
+	return nil, ErrUnsupported
 }
 
 func readc(t string) ([]byte, error) {
@@ -75,12 +71,12 @@ func readc(t string) ([]byte, error) {
 	n := C.clipboard_read(ct, &data)
 	switch C.long(n) {
 	case -1:
-		return nil, errUnavailable
+		return nil, ErrUnavailable
 	case -2:
-		return nil, errUnsupported
+		return nil, ErrUnsupported
 	}
 	if data == nil {
-		return nil, errUnavailable
+		return nil, ErrUnavailable
 	}
 	defer C.free(unsafe.Pointer(data))
 	switch {
@@ -92,8 +88,8 @@ func readc(t string) ([]byte, error) {
 }
 
 // write writes the given data to clipboard and
-// returns true if success or false if failed.
-func write(t Format, buf []byte) (<-chan struct{}, error) {
+// returns an error if failed.
+func write(t Format, buf []byte) error {
 	var s string
 	switch t {
 	case FmtText:
@@ -103,12 +99,8 @@ func write(t Format, buf []byte) (<-chan struct{}, error) {
 	}
 
 	start := make(chan int)
-	done := make(chan struct{}, 1)
 
-	go func() { // serve as a daemon until the ownership is terminated.
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-
+	go func() {
 		cs := C.CString(s)
 		defer C.free(unsafe.Pointer(cs))
 
@@ -122,41 +114,14 @@ func write(t Format, buf []byte) (<-chan struct{}, error) {
 		if ok != C.int(0) {
 			fmt.Fprintf(os.Stderr, "write failed with status: %d\n", int(ok))
 		}
-		done <- struct{}{}
-		close(done)
+		close(start)
 	}()
 
 	status := <-start
 	if status < 0 {
-		return nil, errUnavailable
+		return ErrUnavailable
 	}
-	// wait until enter event loop
-	return done, nil
-}
-
-func watch(ctx context.Context, t Format) <-chan []byte {
-	recv := make(chan []byte, 1)
-	ti := time.NewTicker(time.Second)
-	last := Read(t)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(recv)
-				return
-			case <-ti.C:
-				b := Read(t)
-				if b == nil {
-					continue
-				}
-				if !bytes.Equal(last, b) {
-					recv <- b
-					last = b
-				}
-			}
-		}
-	}()
-	return recv
+	return nil
 }
 
 //export syncStatus

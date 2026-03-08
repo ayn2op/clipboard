@@ -7,7 +7,6 @@ package clipboard
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -17,7 +16,6 @@ import (
 	"reflect"
 	"runtime"
 	"syscall"
-	"time"
 	"unicode/utf16"
 	"unsafe"
 
@@ -118,7 +116,7 @@ func readImage() ([]byte, error) {
 
 	// maybe deal with other formats?
 	if info.BitCount != 32 {
-		return nil, errUnsupported
+		return nil, ErrUnsupported
 	}
 
 	var data []byte
@@ -308,7 +306,7 @@ func read(t Format) (buf []byte, err error) {
 	// check if clipboard is avaliable for the requested format
 	r, _, err := isClipboardFormatAvailable.Call(format)
 	if r == 0 {
-		return nil, errUnavailable
+		return nil, ErrUnavailable
 	}
 
 	// try again until open clipboard successed
@@ -332,94 +330,31 @@ func read(t Format) (buf []byte, err error) {
 }
 
 // write writes the given data to clipboard and
-// returns true if success or false if failed.
-func write(t Format, buf []byte) (<-chan struct{}, error) {
-	errch := make(chan error)
-	changed := make(chan struct{}, 1)
-	go func() {
-		// make sure GetClipboardSequenceNumber happens with
-		// OpenClipboard on the same thread.
-		runtime.LockOSThread()
-		defer runtime.UnlockOSThread()
-		for {
-			r, _, _ := openClipboard.Call(0)
-			if r == 0 {
-				continue
-			}
-			break
-		}
+// returns an error if failed.
+func write(t Format, buf []byte) error {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
-		// var param uintptr
-		switch t {
-		case FmtImage:
-			err := writeImage(buf)
-			if err != nil {
-				errch <- err
-				closeClipboard.Call()
-				return
-			}
-		case FmtText:
-			fallthrough
-		default:
-			// param = cFmtUnicodeText
-			err := writeText(buf)
-			if err != nil {
-				errch <- err
-				closeClipboard.Call()
-				return
-			}
+	for {
+		r, _, _ := openClipboard.Call(0)
+		if r == 0 {
+			continue
 		}
-		// Close the clipboard otherwise other applications cannot
-		// paste the data.
-		closeClipboard.Call()
-
-		cnt, _, _ := getClipboardSequenceNumber.Call()
-		errch <- nil
-		for {
-			time.Sleep(time.Second)
-			cur, _, _ := getClipboardSequenceNumber.Call()
-			if cur != cnt {
-				changed <- struct{}{}
-				close(changed)
-				return
-			}
-		}
-	}()
-	err := <-errch
-	if err != nil {
-		return nil, err
+		break
 	}
-	return changed, nil
-}
 
-func watch(ctx context.Context, t Format) <-chan []byte {
-	recv := make(chan []byte, 1)
-	ready := make(chan struct{})
-	go func() {
-		// not sure if we are too slow or the user too fast :)
-		ti := time.NewTicker(time.Second)
-		cnt, _, _ := getClipboardSequenceNumber.Call()
-		ready <- struct{}{}
-		for {
-			select {
-			case <-ctx.Done():
-				close(recv)
-				return
-			case <-ti.C:
-				cur, _, _ := getClipboardSequenceNumber.Call()
-				if cnt != cur {
-					b := Read(t)
-					if b == nil {
-						continue
-					}
-					recv <- b
-					cnt = cur
-				}
-			}
-		}
-	}()
-	<-ready
-	return recv
+	var err error
+	switch t {
+	case FmtImage:
+		err = writeImage(buf)
+	case FmtText:
+		fallthrough
+	default:
+		err = writeText(buf)
+	}
+
+	closeClipboard.Call()
+	return err
 }
 
 const (

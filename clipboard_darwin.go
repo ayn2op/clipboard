@@ -12,12 +12,9 @@ unsigned int clipboard_read_string(void **out);
 unsigned int clipboard_read_image(void **out);
 int clipboard_write_string(const void *bytes, NSInteger n);
 int clipboard_write_image(const void *bytes, NSInteger n);
-NSInteger clipboard_change_count();
 */
 import "C"
 import (
-	"context"
-	"time"
 	"unsafe"
 )
 
@@ -35,7 +32,7 @@ func read(t Format) (buf []byte, err error) {
 		n = C.clipboard_read_image(&data)
 	}
 	if data == nil {
-		return nil, errUnavailable
+		return nil, ErrUnavailable
 	}
 	defer C.free(unsafe.Pointer(data))
 	if n == 0 {
@@ -44,9 +41,8 @@ func read(t Format) (buf []byte, err error) {
 	return C.GoBytes(data, C.int(n)), nil
 }
 
-// write writes the given data to clipboard and
-// returns true if success or false if failed.
-func write(t Format, buf []byte) (<-chan struct{}, error) {
+// write writes the given data to clipboard and returns an error if failed.
+func write(t Format, buf []byte) error {
 	var ok C.int
 	switch t {
 	case FmtText:
@@ -64,53 +60,10 @@ func write(t Format, buf []byte) (<-chan struct{}, error) {
 				C.NSInteger(len(buf)))
 		}
 	default:
-		return nil, errUnsupported
+		return ErrUnsupported
 	}
 	if ok != 0 {
-		return nil, errUnavailable
+		return ErrUnavailable
 	}
-
-	// use unbuffered data to prevent goroutine leak
-	changed := make(chan struct{}, 1)
-	cnt := C.long(C.clipboard_change_count())
-	go func() {
-		for {
-			// not sure if we are too slow or the user too fast :)
-			time.Sleep(time.Second)
-			cur := C.long(C.clipboard_change_count())
-			if cnt != cur {
-				changed <- struct{}{}
-				close(changed)
-				return
-			}
-		}
-	}()
-	return changed, nil
-}
-
-func watch(ctx context.Context, t Format) <-chan []byte {
-	recv := make(chan []byte, 1)
-	// not sure if we are too slow or the user too fast :)
-	ti := time.NewTicker(time.Second)
-	lastCount := C.long(C.clipboard_change_count())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				close(recv)
-				return
-			case <-ti.C:
-				this := C.long(C.clipboard_change_count())
-				if lastCount != this {
-					b := Read(t)
-					if b == nil {
-						continue
-					}
-					recv <- b
-					lastCount = this
-				}
-			}
-		}
-	}()
-	return recv
+	return nil
 }
