@@ -1,6 +1,6 @@
 # clipboard [![PkgGoDev](https://pkg.go.dev/badge/golang.design/x/clipboard)](https://pkg.go.dev/golang.design/x/clipboard) ![](https://changkun.de/urlstat?mode=github&repo=golang-design/clipboard) ![clipboard](https://github.com/golang-design/clipboard/workflows/clipboard/badge.svg?branch=main)
 
-Cross platform (macOS/Linux/Windows/Android/iOS) clipboard package in Go
+Cross platform (macOS/Linux/FreeBSD/Windows/Android/iOS) clipboard package in Go
 
 ```go
 import "golang.design/x/clipboard"
@@ -8,7 +8,7 @@ import "golang.design/x/clipboard"
 
 ## Features
 
-- Cross platform supports: **macOS, Linux (X11), Windows, iOS, and Android**
+- Cross platform supports: **macOS, Linux (X11), FreeBSD (X11), Windows, iOS, and Android**
 - Copy/paste UTF-8 text
 - Copy/paste PNG encoded images (Desktop-only)
 - Command `gclip` as a demo application
@@ -17,7 +17,7 @@ import "golang.design/x/clipboard"
 ## API Usage
 
 Package clipboard provides cross platform clipboard access and supports
-macOS/Linux/Windows/Android/iOS platform. Before interacting with the
+macOS/Linux/FreeBSD/Windows/Android/iOS platform. Before interacting with the
 clipboard, one must call Init to assert if it is possible to use this
 package:
 
@@ -128,7 +128,7 @@ accessing system clipboards, but here are a few details you might need to know.
 ### Dependency
 
 - macOS: require Cgo, no dependency
- - Linux: require X11 dev package. For instance, install `libx11-dev` or `xorg-dev` or `libX11-devel` to access X window system.
+ - Linux/FreeBSD: require X11 dev package. For instance, install `libx11-dev` or `xorg-dev` or `libX11-devel` on Linux, or `libX11` on FreeBSD to access X window system.
    Wayland sessions are currently unsupported; running under Wayland
    typically requires an XWayland bridge and `DISPLAY` to be set.
 - Windows: no Cgo, no dependency

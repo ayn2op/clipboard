@@ -1,15 +1,9 @@
-// Copyright 2021 The golang.design Initiative Authors.
-// All rights reserved. Use of this source code is governed
-// by a MIT license that can be found in the LICENSE file.
-//
-// Written by Changkun Ou <changkun.de>
-
-//go:build linux && !android
+//go:build (linux || freebsd) && !android
 
 package clipboard
 
 /*
-#cgo LDFLAGS: -ldl
+#cgo linux LDFLAGS: -ldl
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -37,9 +31,10 @@ import (
 )
 
 var helpmsg = `%w: Failed to initialize the X11 display, and the clipboard package
-will not work properly. Install the following dependency may help:
+will not work properly. Install an X11 development package may help:
 
-	apt install -y libx11-dev
+	Linux (Debian/Ubuntu): apt install -y libx11-dev
+	FreeBSD: pkg install -y libX11
 
 If the clipboard package is in an environment without a frame buffer,
 such as a cloud server, it may also be necessary to install xvfb:

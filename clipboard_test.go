@@ -1,9 +1,3 @@
-// Copyright 2021 The golang.design Initiative Authors.
-// All rights reserved. Use of this source code is governed
-// by a MIT license that can be found in the LICENSE file.
-//
-// Written by Changkun Ou <changkun.de>
-
 package clipboard_test
 
 import (
@@ -42,8 +36,8 @@ func TestClipboardInit(t *testing.T) {
 		if val, ok := os.LookupEnv("CGO_ENABLED"); ok && val == "0" {
 			t.Skip("CGO_ENABLED is set to 0")
 		}
-		if runtime.GOOS != "linux" {
-			t.Skip("Only Linux may return error at the moment.")
+		if runtime.GOOS != "linux" && runtime.GOOS != "freebsd" {
+			t.Skip("Only Linux/FreeBSD may return error at the moment.")
 		}
 
 		if err := clipboard.Init(); err != nil && !errors.Is(err, clipboard.ErrUnavailable) {

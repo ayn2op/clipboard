@@ -1,11 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-Copyright 2021 The golang.design Initiative Authors.
-All rights reserved. Use of this source code is governed
-by a MIT license that can be found in the LICENSE file.
-
-Written by Changkun Ou <changkun.de>
--->
 <manifest
 	xmlns:android="http://schemas.android.com/apk/res/android"
 	package="design.golang.clipboard.gclip"
